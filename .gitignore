@@ -1,6 +1,9 @@
 # Mac stuff:
 .DS_Store
 
+#Idea
+.idea
+
 # trunk output folder
 dist
 

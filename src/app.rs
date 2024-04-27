@@ -1,3 +1,5 @@
+use egui::Ui;
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -78,6 +80,10 @@ impl eframe::App for TemplateApp {
             if ui.button("Increment").clicked() {
                 self.value += 1.0;
             }
+            ui.separator();
+
+            // Add plot
+            plot(ui);
 
             ui.separator();
 
@@ -92,6 +98,25 @@ impl eframe::App for TemplateApp {
             });
         });
     }
+}
+
+fn plot(ui: &mut egui::Ui) -> egui::Response {
+    use egui_plot::{Line, PlotPoints};
+    let n = 128;
+    let line_points: PlotPoints = (0..=n)
+        .map(|index| {
+            use std::f64::consts::TAU;
+            let x = egui::remap(index as f64, 0.0..=n as f64, -TAU..=TAU);
+            [x, x.sin()]
+        })
+        .collect();
+    let line = Line::new(line_points);
+    egui_plot::Plot::new("a plot")
+        .height(600.0)
+        .show_axes(true)
+        .data_aspect(1.0)
+        .show(ui, |plot_ui| plot_ui.line(line))
+        .response
 }
 
 fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {

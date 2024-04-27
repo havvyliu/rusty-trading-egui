@@ -1,9 +1,9 @@
 var cacheName = "egui-template-pwa";
 var filesToCache = [
-  "./",
-  "./index.html",
-  "./rusty_trading_egui.js",
-  "./rusty_trading_egui_bg.wasm",
+  // "./",
+  // "./index.html",
+  // "./rusty_trading_egui.js",
+  // "./rusty_trading_egui_bg.wasm",
 ];
 
 /* Start the service worker and cache all of the app's content */

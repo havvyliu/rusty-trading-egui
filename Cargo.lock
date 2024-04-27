@@ -916,6 +916,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_plot"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df8385c285c2157bb94ae572e48d137587bac31207707ad86b7f8d09612b9657"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "emath"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2118,6 +2127,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui_plot",
  "env_logger",
  "log",
  "serde",
