@@ -1,4 +1,5 @@
 use egui::Ui;
+use egui_plot::BoxSpread;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -69,12 +70,7 @@ impl eframe::App for TemplateApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("Rusty Trading egui");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
+            ui.heading("Rusty Trading");
 
             ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
             if ui.button("Increment").clicked() {
@@ -88,8 +84,8 @@ impl eframe::App for TemplateApp {
             ui.separator();
 
             ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/main/",
-                "Source code."
+                "https://github.com/havvyliu/rusty-trading-egui",
+                "Source code"
             ));
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -101,6 +97,7 @@ impl eframe::App for TemplateApp {
 }
 
 fn plot(ui: &mut egui::Ui) -> egui::Response {
+    use egui_plot::{BoxElem, BoxPlot};
     use egui_plot::{Line, PlotPoints};
     let n = 128;
     let line_points: PlotPoints = (0..=n)
@@ -111,11 +108,24 @@ fn plot(ui: &mut egui::Ui) -> egui::Response {
         })
         .collect();
     let line = Line::new(line_points);
+    let box_elements = (0..=n)
+        .map(|i| {
+            use std::f64::consts::TAU;
+            let x = egui::remap(i as f64, 0.0..=n as f64, -TAU..=TAU);
+            let y = x.sin();
+            let spread = BoxSpread::new(y, y + 1.0, y + 2.0, y + 3.0, y + 4.0);
+            BoxElem::new(x, spread)
+        })
+        .collect();
+    let box_plot = BoxPlot::new(box_elements);
     egui_plot::Plot::new("a plot")
         .height(600.0)
         .show_axes(true)
         .data_aspect(1.0)
-        .show(ui, |plot_ui| plot_ui.line(line))
+        .show(ui, |plot_ui| {
+            plot_ui.line(line);
+            plot_ui.box_plot(box_plot);
+        })
         .response
 }
 
