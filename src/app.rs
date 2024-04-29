@@ -1,5 +1,8 @@
-use egui::Ui;
+use std::{sync::{Arc, Mutex}, time::Duration};
+
+use chrono::{DateTime, Utc};
 use egui_plot::BoxSpread;
+use rusty_trading_lib::structs::{TimeRange, TimeSeries};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -9,16 +12,26 @@ pub struct TemplateApp {
     label: String,
 
     #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+    value: Arc<Mutex<f32>>,
+
+    // managing the stock data, similar to value above
+    time_series: Arc<Mutex<TimeSeries>>,
+    // last time the data is updated
+    last_update: DateTime<Utc>,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
-        Self {
+        let time_series = TimeSeries::new(TimeRange::Day, Utc::now(), Utc::now(), vec![]);
+        let time_series_arc = Arc::new(Mutex::new(time_series));
+        let app = Self {
             // Example stuff:
             label: "Hello World!".to_owned(),
-            value: 2.7,
-        }
+            value: Arc::new(Mutex::new(2.7)),
+            time_series: time_series_arc,
+            last_update: Utc::now(),
+        };
+        app
     }
 }
 
@@ -49,6 +62,20 @@ impl eframe::App for TemplateApp {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
+        let request = ehttp::Request::get("http://127.0.0.1:3000/daily");
+        let arc_clone = self.time_series.clone();
+        let ctx_clone = ctx.clone();
+        let val_arc_clone = self.value.clone();
+        if self.last_update + Duration::from_secs(10) <= Utc::now() {
+            log::info!("now is {:?}", Utc::now());
+            ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
+                let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
+                *arc_clone.lock().unwrap() = time_series;
+                *val_arc_clone.lock().unwrap() += 0.1;
+                ctx_clone.request_repaint();
+            });
+        }
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
 
@@ -68,13 +95,10 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("Rusty Trading");
-
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
+        egui::Window::new("Rusty Trading").show(ctx, |ui| {
+            ui.add(egui::Slider::new(&mut *self.value.lock().unwrap(), 0.0..=10.0).text("value"));
             if ui.button("Increment").clicked() {
-                self.value += 1.0;
+                *self.value.lock().unwrap()  += 1.0;
             }
             ui.separator();
 
@@ -119,7 +143,7 @@ fn plot(ui: &mut egui::Ui) -> egui::Response {
         .collect();
     let box_plot = BoxPlot::new(box_elements);
     egui_plot::Plot::new("a plot")
-        .height(600.0)
+        .height(200.0)
         .show_axes(true)
         .data_aspect(1.0)
         .show(ui, |plot_ui| {
