@@ -1,8 +1,10 @@
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::{borrow::Borrow, sync::{Arc, Mutex}, time::Duration};
+use egui_plot::{BoxElem, BoxPlot};
+use egui_plot::{Line, PlotPoints};
 
 use chrono::{DateTime, Utc};
 use egui_plot::BoxSpread;
-use rusty_trading_lib::structs::{TimeRange, TimeSeries};
+use rusty_trading_lib::structs::{TimeRange, TimeSeries, Point};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -63,15 +65,19 @@ impl eframe::App for TemplateApp {
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
         let request = ehttp::Request::get("http://127.0.0.1:3000/daily");
+        let simulate_request = ehttp::Request::post("http://127.0.0.1:3000/simulate", "AMD".as_bytes().to_owned());
         let arc_clone = self.time_series.clone();
         let ctx_clone = ctx.clone();
         let val_arc_clone = self.value.clone();
         if self.last_update + Duration::from_secs(10) <= Utc::now() {
             log::info!("now is {:?}", Utc::now());
+            log::info!("calling simulate api");
+            let _ = ehttp::fetch(simulate_request, |_| {});
+            log::info!("calling get_daily api");
             ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
                 let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
                 *arc_clone.lock().unwrap() = time_series;
-                *val_arc_clone.lock().unwrap() += 0.1;
+                *val_arc_clone.lock().unwrap() += 0.01;
                 ctx_clone.request_repaint();
             });
         }
@@ -103,7 +109,7 @@ impl eframe::App for TemplateApp {
             ui.separator();
 
             // Add plot
-            plot(ui);
+            plot_stock(ui, self);
 
             ui.separator();
 
@@ -120,9 +126,31 @@ impl eframe::App for TemplateApp {
     }
 }
 
+fn plot_stock(ui: &mut egui::Ui, app: &mut TemplateApp) -> egui::Response {
+    let points: Vec<Point> = app.time_series.lock().unwrap().data().into_iter()
+        .map(|p: &Point| {
+            Point::new(p.open, p.high, p.low, p.close, p.volume)
+        })
+        .collect();
+    let len = points.len();
+    let line_points: PlotPoints = (0..len)
+        .map(|i| {
+            [i as f64, points.get(i).unwrap().volume as f64]
+        })
+        .collect();
+    let line = Line::new(line_points);
+    egui_plot::Plot::new("a plot")
+        .height(200.0)
+        .width(600.0)
+        .show_axes(true)
+        .show(ui, |plot_ui| {
+            plot_ui.line(line);
+        })
+        .response
+}
+
 fn plot(ui: &mut egui::Ui) -> egui::Response {
-    use egui_plot::{BoxElem, BoxPlot};
-    use egui_plot::{Line, PlotPoints};
+
     let n = 128;
     let line_points: PlotPoints = (0..=n)
         .map(|index| {
