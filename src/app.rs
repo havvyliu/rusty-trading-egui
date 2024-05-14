@@ -1,4 +1,5 @@
-use std::{borrow::Borrow, sync::{Arc, Mutex}, time::Duration};
+use std::{sync::{Arc, Mutex}, time::Duration};
+use egui::{Color32, Stroke};
 use egui_plot::{BoxElem, BoxPlot};
 use egui_plot::{Line, PlotPoints};
 
@@ -66,20 +67,19 @@ impl eframe::App for TemplateApp {
 
         let request = ehttp::Request::get("http://127.0.0.1:3000/daily");
         let simulate_request = ehttp::Request::post("http://127.0.0.1:3000/simulate", "AMD".as_bytes().to_owned());
-        let arc_clone = self.time_series.clone();
+        let time_series_clone = self.time_series.clone();
         let ctx_clone = ctx.clone();
-        let val_arc_clone = self.value.clone();
-        if self.last_update + Duration::from_secs(10) <= Utc::now() {
+        let now = Utc::now();
+        if self.last_update + Duration::from_secs(10) <= now {
             log::info!("now is {:?}", Utc::now());
-            log::info!("calling simulate api");
             let _ = ehttp::fetch(simulate_request, |_| {});
-            log::info!("calling get_daily api");
+            log::info!("calling get_daily api and repaint graph");
             ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
                 let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
-                *arc_clone.lock().unwrap() = time_series;
-                *val_arc_clone.lock().unwrap() += 0.01;
+                *time_series_clone.lock().unwrap() = time_series;
                 ctx_clone.request_repaint();
             });
+            self.last_update = now;
         }
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -118,10 +118,6 @@ impl eframe::App for TemplateApp {
                 "Source code"
             ));
 
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
-            });
         });
     }
 }
@@ -133,18 +129,34 @@ fn plot_stock(ui: &mut egui::Ui, app: &mut TemplateApp) -> egui::Response {
         })
         .collect();
     let len = points.len();
-    let line_points: PlotPoints = (0..len)
+    // let line_points: PlotPoints = (0..len)
+    //     .map(|i| {
+    //         [i as f64, points.get(i).unwrap().volume as f64]
+    //     })
+    //     .collect();
+    // let line = Line::new(line_points);
+    let box_elements = (1..len)
         .map(|i| {
-            [i as f64, points.get(i).unwrap().volume as f64]
+            let point = points.get(i).unwrap();
+            let spread = BoxSpread::new(point.low as f64, point.open as f64, point.close as f64, point.close as f64, point.high as f64);
+            let mut color = Color32::LIGHT_GREEN;
+            if let Some(last_point) = points.get(i - 1) {
+                if last_point.close > point.close {
+                    color = Color32::LIGHT_RED;
+                }
+            }
+            BoxElem::new(i as f64, spread).stroke(Stroke::new(0.5, color))
+                .fill(color)
         })
         .collect();
-    let line = Line::new(line_points);
+    let box_plot = BoxPlot::new(box_elements);
     egui_plot::Plot::new("a plot")
         .height(200.0)
         .width(600.0)
         .show_axes(true)
         .show(ui, |plot_ui| {
-            plot_ui.line(line);
+            // plot_ui.line(line);
+            plot_ui.box_plot(box_plot)
         })
         .response
 }
