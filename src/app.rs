@@ -1,6 +1,6 @@
 use std::{sync::{Arc, Mutex}, time::Duration};
-use egui::{Color32, Stroke};
-use egui_plot::{BoxElem, BoxPlot};
+use egui::{Color32, Stroke, Vec2};
+use egui_plot::{BoxElem, BoxPlot, PlotUi};
 use egui_plot::{Line, PlotPoints};
 
 use chrono::{DateTime, Utc};
@@ -17,6 +17,9 @@ pub struct TemplateApp {
     #[serde(skip)] // This how you opt-out of serialization of a field
     value: Arc<Mutex<f32>>,
 
+    candle_toggle: bool,
+    line_toggle: bool,
+
     // managing the stock data, similar to value above
     time_series: Arc<Mutex<TimeSeries>>,
     // last time the data is updated
@@ -30,6 +33,8 @@ impl Default for TemplateApp {
         let app = Self {
             // Example stuff:
             label: "Hello World!".to_owned(),
+            candle_toggle: true,
+            line_toggle: false,
             value: Arc::new(Mutex::new(2.7)),
             time_series: time_series_arc,
             last_update: Utc::now(),
@@ -102,10 +107,10 @@ impl eframe::App for TemplateApp {
         });
 
         egui::Window::new("Rusty Trading").show(ctx, |ui| {
-            ui.add(egui::Slider::new(&mut *self.value.lock().unwrap(), 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *self.value.lock().unwrap()  += 1.0;
-            }
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.candle_toggle, "Candle");
+                ui.checkbox(&mut self.line_toggle, "Line");
+            });
             ui.separator();
 
             // Add plot
@@ -123,18 +128,44 @@ impl eframe::App for TemplateApp {
 }
 
 fn plot_stock(ui: &mut egui::Ui, app: &mut TemplateApp) -> egui::Response {
+
+    egui_plot::Plot::new("stonk")
+        .view_aspect(1.6)
+        .min_size(Vec2::new(600.0, 200.0))
+        .set_margin_fraction(Vec2::new(0.1, 0.1))
+        .show_axes(true)
+        .show(ui, |plot_ui| {
+            plot_line(app, plot_ui);
+            plot_candle(app, plot_ui);
+        })
+        .response
+}
+
+fn plot_line(app: &TemplateApp, plot_ui:&mut PlotUi) {
+    if !app.line_toggle {return;}
     let points: Vec<Point> = app.time_series.lock().unwrap().data().into_iter()
         .map(|p: &Point| {
             Point::new(p.open, p.high, p.low, p.close, p.volume)
         })
         .collect();
     let len = points.len();
-    // let line_points: PlotPoints = (0..len)
-    //     .map(|i| {
-    //         [i as f64, points.get(i).unwrap().volume as f64]
-    //     })
-    //     .collect();
-    // let line = Line::new(line_points);
+    let line_points: PlotPoints = (0..len)
+        .map(|i| {
+            [i as f64, points.get(i).unwrap().close as f64]
+        })
+        .collect();
+    let line = Line::new(line_points);
+    plot_ui.line(line);
+}
+
+fn plot_candle(app: &TemplateApp, plot_ui:&mut PlotUi) {
+    if !app.candle_toggle {return;}
+    let points: Vec<Point> = app.time_series.lock().unwrap().data().into_iter()
+        .map(|p: &Point| {
+            Point::new(p.open, p.high, p.low, p.close, p.volume)
+        })
+        .collect();
+    let len = points.len();
     let box_elements = (1..len)
         .map(|i| {
             let point = points.get(i).unwrap();
@@ -150,15 +181,7 @@ fn plot_stock(ui: &mut egui::Ui, app: &mut TemplateApp) -> egui::Response {
         })
         .collect();
     let box_plot = BoxPlot::new(box_elements);
-    egui_plot::Plot::new("a plot")
-        .height(200.0)
-        .width(600.0)
-        .show_axes(true)
-        .show(ui, |plot_ui| {
-            // plot_ui.line(line);
-            plot_ui.box_plot(box_plot)
-        })
-        .response
+    plot_ui.box_plot(box_plot);
 }
 
 fn plot(ui: &mut egui::Ui) -> egui::Response {
@@ -191,18 +214,4 @@ fn plot(ui: &mut egui::Ui) -> egui::Response {
             plot_ui.box_plot(box_plot);
         })
         .response
-}
-
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
-        ui.label(".");
-    });
 }
