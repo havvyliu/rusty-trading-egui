@@ -24,6 +24,10 @@ pub struct TemplateApp {
     time_series: Arc<Mutex<TimeSeries>>,
     // last time the data is updated
     last_update: DateTime<Utc>,
+
+    stock: String,
+    qty: String,
+    price: String,
 }
 
 impl Default for TemplateApp {
@@ -38,6 +42,9 @@ impl Default for TemplateApp {
             value: Arc::new(Mutex::new(2.7)),
             time_series: time_series_arc,
             last_update: Utc::now(),
+            stock: String::new(),
+            qty: String::new(),
+            price: String::new(),
         };
         app
     }
@@ -75,7 +82,7 @@ impl eframe::App for TemplateApp {
         let time_series_clone = self.time_series.clone();
         let ctx_clone = ctx.clone();
         let now = Utc::now();
-        if self.last_update + Duration::from_secs(10) <= now {
+        if self.last_update + Duration::from_secs(100) <= now {
             log::info!("now is {:?}", Utc::now());
             let _ = ehttp::fetch(simulate_request, |_| {});
             log::info!("calling get_daily api and repaint graph");
@@ -107,22 +114,30 @@ impl eframe::App for TemplateApp {
         });
 
         egui::Window::new("Rusty Trading").show(ctx, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().text_edit_width = 50.;
+                ui.label("Stock:");
+                ui.text_edit_singleline(&mut self.stock);
+                ui.label("Quantity:");
+                ui.text_edit_singleline(&mut self.qty);
+                ui.label("Price:");
+                ui.text_edit_singleline(&mut self.price);
+            });
+            ui.horizontal(|ui| {
+                ui.button("BUY");
+                ui.button("SELL");
+            });
+            ui.separator();
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.candle_toggle, "Candle");
                 ui.checkbox(&mut self.line_toggle, "Line");
             });
-            ui.separator();
-
             // Add plot
             plot_stock(ui, self);
-
-            ui.separator();
-
-            ui.add(egui::github_link_file!(
+            ui.add(egui::Hyperlink::from_label_and_url(
+                "Source",
                 "https://github.com/havvyliu/rusty-trading-egui",
-                "Source code"
             ));
-
         });
     }
 }
@@ -176,7 +191,10 @@ fn plot_candle(app: &TemplateApp, plot_ui:&mut PlotUi) {
                     color = Color32::LIGHT_RED;
                 }
             }
-            BoxElem::new(i as f64, spread).stroke(Stroke::new(0.5, color))
+            BoxElem::new(i as f64, spread)
+                .box_width(1.)
+                .stroke(Stroke::new(1., color))
+                .whisker_width(0.5)
                 .fill(color)
         })
         .collect();
