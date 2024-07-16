@@ -5,7 +5,7 @@ use egui_plot::{Line, PlotPoints};
 
 use chrono::{DateTime, Utc};
 use egui_plot::BoxSpread;
-use rusty_trading_lib::structs::{TimeRange, TimeSeries, Point};
+use rusty_trading_lib::structs::{Point, TimeRange, TimeSeries, Transaction};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -78,13 +78,12 @@ impl eframe::App for TemplateApp {
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
         let request = ehttp::Request::get("http://127.0.0.1:3000/daily");
-        let simulate_request = ehttp::Request::post("http://127.0.0.1:3000/simulate", "AMD".as_bytes().to_owned());
+        // let simulate_request = ehttp::Request::post("http://127.0.0.1:3000/simulate", "AMD".as_bytes().to_owned());
         let time_series_clone = self.time_series.clone();
         let ctx_clone = ctx.clone();
         let now = Utc::now();
         if self.last_update + Duration::from_secs(100) <= now {
             log::info!("now is {:?}", Utc::now());
-            let _ = ehttp::fetch(simulate_request, |_| {});
             log::info!("calling get_daily api and repaint graph");
             ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
                 let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
@@ -113,7 +112,7 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        egui::Window::new("Rusty Trading").show(ctx, |ui| {
+        egui::Window::new(self.stock.to_owned()).show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().text_edit_width = 50.;
                 ui.label("Stock:");
@@ -124,8 +123,26 @@ impl eframe::App for TemplateApp {
                 ui.text_edit_singleline(&mut self.price);
             });
             ui.horizontal(|ui| {
-                ui.button("BUY");
-                ui.button("SELL");
+                let url = "http://127.0.0.1:3000/transaction";
+                if ui.button("BUY").clicked() {
+
+                    let transaction = Transaction::buy(self.stock.to_owned(), self.price.parse::<f32>().unwrap(), self.qty.parse::<u32>().unwrap());
+                    let val = serde_json::to_value(transaction).unwrap();
+                    log::info!("{val}");
+                    let req = ehttp::Request::json(url, &val).unwrap();
+                    ehttp::fetch(req, move |response| {
+                        log::info!("{:?}", response.unwrap().text().unwrap())
+                    });
+                };
+                if ui.button("SELL").clicked() {
+                    let transaction = Transaction::sell(self.stock.to_owned(), self.price.parse::<f32>().unwrap(), self.qty.parse::<u32>().unwrap());
+                    let val = serde_json::to_value(transaction).unwrap();
+                    log::info!("{val}");
+                    let req = ehttp::Request::json(url, &val).unwrap();
+                    ehttp::fetch(req, move |response| {
+                        log::info!("{:?}", response.unwrap().text().unwrap())
+                    });
+                };
             });
             ui.separator();
             ui.horizontal(|ui| {
