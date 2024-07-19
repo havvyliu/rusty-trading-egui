@@ -20,11 +20,11 @@ pub struct Stock {
     stock_name: String,
     qty: String,
     price: String,
-
+    open: bool,
 }
 
 impl Stock {
-    pub fn default() -> Self {
+    pub fn default(stock_name: &str) -> Self {
         let time_series = TimeSeries::new(TimeRange::Day, Utc::now(), Utc::now(), vec![]);
         let time_series_arc = Arc::new(Mutex::new(time_series));
         Self {
@@ -32,9 +32,10 @@ impl Stock {
             line_toggle: false,
             time_series: time_series_arc,
             last_update: Utc::now(),
-            stock_name: String::new(),
+            stock_name: stock_name.to_owned(),
             qty: String::new(),
             price: String::new(),
+            open: true,
         }
     }
 }
@@ -47,10 +48,11 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
     let price = &mut stock.price;
     let stock_name = &stock.stock_name;
 
-    egui::Window::new(stock_name).show(ctx, |ui| {
+    egui::Window::new("Stock: ".to_owned() + stock_name)
+        .open(&mut stock.open)
+        .show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().text_edit_width = 50.;
-            ui.label("Stock: {stock}");
             ui.label("Quantity:");
             ui.text_edit_singleline(qty);
             ui.label("Price:");

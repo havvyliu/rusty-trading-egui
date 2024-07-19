@@ -123,7 +123,7 @@ impl eframe::App for TemplateApp {
             });
             ui.horizontal(|ui| {
                 if ui.button("PICK").clicked() {
-                    self.stocks_map.lock().unwrap().insert(self.stock.clone(), Stock::default());
+                    self.stocks_map.lock().unwrap().insert(self.stock.clone(), Stock::default(&self.stock));
                 }
             });
         });
