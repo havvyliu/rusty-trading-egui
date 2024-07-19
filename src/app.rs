@@ -1,4 +1,4 @@
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::{collections::HashMap, iter::Map, sync::{Arc, Mutex}, time::Duration};
 use egui::{Color32, Stroke, Vec2};
 use egui_plot::{BoxElem, BoxPlot, PlotUi};
 use egui_plot::{Line, PlotPoints};
@@ -7,11 +7,12 @@ use chrono::{DateTime, Utc};
 use egui_plot::BoxSpread;
 use rusty_trading_lib::structs::{Point, TimeRange, TimeSeries, Transaction};
 
+use crate::{create_new_stock_window, Stock};
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-    // Example stuff:
     label: String,
 
     #[serde(skip)] // This how you opt-out of serialization of a field
@@ -28,6 +29,7 @@ pub struct TemplateApp {
     stock: String,
     qty: String,
     price: String,
+    stocks_map: Arc<Mutex<HashMap<String, Stock>>>,
 }
 
 impl Default for TemplateApp {
@@ -45,6 +47,7 @@ impl Default for TemplateApp {
             stock: String::new(),
             qty: String::new(),
             price: String::new(),
+            stocks_map: Arc::new(Mutex::new(HashMap::new())),
         };
         app
     }
@@ -112,111 +115,23 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        egui::Window::new(self.stock.to_owned()).show(ctx, |ui| {
+        egui::Window::new("Stock Picker").show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().text_edit_width = 50.;
                 ui.label("Stock:");
                 ui.text_edit_singleline(&mut self.stock);
-                ui.label("Quantity:");
-                ui.text_edit_singleline(&mut self.qty);
-                ui.label("Price:");
-                ui.text_edit_singleline(&mut self.price);
             });
             ui.horizontal(|ui| {
-                let url = "http://127.0.0.1:3000/transaction";
-                if ui.button("BUY").clicked() {
-
-                    let transaction = Transaction::buy(self.stock.to_owned(), self.price.parse::<f32>().unwrap(), self.qty.parse::<u32>().unwrap());
-                    let val = serde_json::to_value(transaction).unwrap();
-                    log::info!("{val}");
-                    let req = ehttp::Request::json(url, &val).unwrap();
-                    ehttp::fetch(req, move |response| {
-                        log::info!("{:?}", response.unwrap().text().unwrap())
-                    });
-                };
-                if ui.button("SELL").clicked() {
-                    let transaction = Transaction::sell(self.stock.to_owned(), self.price.parse::<f32>().unwrap(), self.qty.parse::<u32>().unwrap());
-                    let val = serde_json::to_value(transaction).unwrap();
-                    log::info!("{val}");
-                    let req = ehttp::Request::json(url, &val).unwrap();
-                    ehttp::fetch(req, move |response| {
-                        log::info!("{:?}", response.unwrap().text().unwrap())
-                    });
-                };
-            });
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut self.candle_toggle, "Candle");
-                ui.checkbox(&mut self.line_toggle, "Line");
-            });
-            // Add plot
-            plot_stock(ui, self);
-            ui.add(egui::Hyperlink::from_label_and_url(
-                "Source",
-                "https://github.com/havvyliu/rusty-trading-egui",
-            ));
-        });
-    }
-}
-
-fn plot_stock(ui: &mut egui::Ui, app: &mut TemplateApp) -> egui::Response {
-
-    egui_plot::Plot::new("stonk")
-        .view_aspect(1.6)
-        .min_size(Vec2::new(600.0, 200.0))
-        .set_margin_fraction(Vec2::new(0.1, 0.1))
-        .show_axes(true)
-        .show(ui, |plot_ui| {
-            plot_line(app, plot_ui);
-            plot_candle(app, plot_ui);
-        })
-        .response
-}
-
-fn plot_line(app: &TemplateApp, plot_ui:&mut PlotUi) {
-    if !app.line_toggle {return;}
-    let points: Vec<Point> = app.time_series.lock().unwrap().data().into_iter()
-        .map(|p: &Point| {
-            Point::new(p.open, p.high, p.low, p.close, p.volume)
-        })
-        .collect();
-    let len = points.len();
-    let line_points: PlotPoints = (0..len)
-        .map(|i| {
-            [i as f64, points.get(i).unwrap().close as f64]
-        })
-        .collect();
-    let line = Line::new(line_points);
-    plot_ui.line(line);
-}
-
-fn plot_candle(app: &TemplateApp, plot_ui:&mut PlotUi) {
-    if !app.candle_toggle {return;}
-    let points: Vec<Point> = app.time_series.lock().unwrap().data().into_iter()
-        .map(|p: &Point| {
-            Point::new(p.open, p.high, p.low, p.close, p.volume)
-        })
-        .collect();
-    let len = points.len();
-    let box_elements = (1..len)
-        .map(|i| {
-            let point = points.get(i).unwrap();
-            let spread = BoxSpread::new(point.low as f64, point.open as f64, point.close as f64, point.close as f64, point.high as f64);
-            let mut color = Color32::LIGHT_GREEN;
-            if let Some(last_point) = points.get(i - 1) {
-                if last_point.close > point.close {
-                    color = Color32::LIGHT_RED;
+                if ui.button("PICK").clicked() {
+                    self.stocks_map.lock().unwrap().insert(self.stock.clone(), Stock::default());
                 }
-            }
-            BoxElem::new(i as f64, spread)
-                .box_width(1.)
-                .stroke(Stroke::new(1., color))
-                .whisker_width(0.5)
-                .fill(color)
-        })
-        .collect();
-    let box_plot = BoxPlot::new(box_elements);
-    plot_ui.box_plot(box_plot);
+            });
+        });
+
+        for (_, stock) in self.stocks_map.lock().unwrap().iter_mut() {
+            create_new_stock_window(stock, ctx);
+        }
+    }
 }
 
 fn plot(ui: &mut egui::Ui) -> egui::Response {
