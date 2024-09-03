@@ -6,8 +6,6 @@ use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Utc};
 use rusty_trading_lib::structs::{Point, TimeRange, TimeSeries, Transaction};
 
-use crate::TemplateApp;
-
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Stock {
@@ -37,6 +35,10 @@ impl Stock {
             price: String::new(),
             open: true,
         }
+    }
+
+    pub fn set_time_series(self: &Self, time_series: TimeSeries) {
+        *self.time_series.lock().unwrap() = time_series;
     }
 }
 

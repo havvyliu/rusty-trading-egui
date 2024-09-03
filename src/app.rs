@@ -21,15 +21,13 @@ pub struct TemplateApp {
     candle_toggle: bool,
     line_toggle: bool,
 
-    // managing the stock data, similar to value above
-    time_series: Arc<Mutex<TimeSeries>>,
     // last time the data is updated
     last_update: DateTime<Utc>,
 
     stock: String,
     qty: String,
     price: String,
-    stocks_map: Arc<Mutex<HashMap<String, Stock>>>,
+    stocks_map: Arc<Mutex<HashMap<String, Arc<Mutex<Stock>>>>>,
 }
 
 impl Default for TemplateApp {
@@ -42,7 +40,6 @@ impl Default for TemplateApp {
             candle_toggle: true,
             line_toggle: false,
             value: Arc::new(Mutex::new(2.7)),
-            time_series: time_series_arc,
             last_update: Utc::now(),
             stock: String::new(),
             qty: String::new(),
@@ -80,19 +77,21 @@ impl eframe::App for TemplateApp {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        let request = ehttp::Request::get("http://127.0.0.1:3000/daily");
-        // let simulate_request = ehttp::Request::post("http://127.0.0.1:3000/simulate", "AMD".as_bytes().to_owned());
-        let time_series_clone = self.time_series.clone();
-        let ctx_clone = ctx.clone();
         let now = Utc::now();
         if self.last_update + Duration::from_secs(100) <= now {
-            log::info!("now is {:?}", Utc::now());
-            log::info!("calling get_daily api and repaint graph");
-            ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
-                let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
-                *time_series_clone.lock().unwrap() = time_series;
-                ctx_clone.request_repaint();
-            });
+            let ctx_clone = ctx.clone();
+            let mut map = self.stocks_map.lock().unwrap();
+            for (key, val) in map.iter_mut() {
+                let request_template = ehttp::Request::get(format!("http://127.0.0.1:3000/daily?stock={key}"));
+                log::info!("now is {:?}", Utc::now());
+                log::info!("calling get_daily api and repaint graph");
+                let val_clone = Arc::clone(&val);
+                ehttp::fetch(request_template, move |result: ehttp::Result<ehttp::Response>| {
+                    let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
+                    val_clone.lock().unwrap().set_time_series(time_series);
+                });
+            }
+            ctx_clone.request_repaint();
             self.last_update = now;
         }
 
@@ -123,13 +122,14 @@ impl eframe::App for TemplateApp {
             });
             ui.horizontal(|ui| {
                 if ui.button("PICK").clicked() {
-                    self.stocks_map.lock().unwrap().insert(self.stock.clone(), Stock::default(&self.stock));
+                    self.stocks_map.lock().unwrap().insert(self.stock.clone(), 
+                        Arc::new(Mutex::new(Stock::default(&self.stock))));
                 }
             });
         });
 
         for (_, stock) in self.stocks_map.lock().unwrap().iter_mut() {
-            create_new_stock_window(stock, ctx);
+            create_new_stock_window(&mut stock.lock().unwrap(), ctx);
         }
     }
 }
