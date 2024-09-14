@@ -27,15 +27,13 @@ pub struct TemplateApp {
     stock: String,
     qty: String,
     price: String,
+    // TODO: Refactor this with DashMap?
     stocks_map: Arc<Mutex<HashMap<String, Arc<Mutex<Stock>>>>>,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
-        let time_series = TimeSeries::new(TimeRange::Day, Utc::now(), Utc::now(), vec![]);
-        let time_series_arc = Arc::new(Mutex::new(time_series));
         let app = Self {
-            // Example stuff:
             label: "Hello World!".to_owned(),
             candle_toggle: true,
             line_toggle: false,
