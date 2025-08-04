@@ -1,5 +1,5 @@
 use std::{collections::HashMap, iter::Map, sync::{Arc, Mutex}, time::Duration};
-use egui::{Color32, Stroke, Vec2};
+use egui::{Color32, Stroke, Vec2, Visuals, FontId, RichText, Align, Layout, Rounding, Frame, Margin};
 use egui_plot::{BoxElem, BoxPlot, PlotUi};
 use egui_plot::{Line, PlotPoints};
 
@@ -29,12 +29,22 @@ pub struct TemplateApp {
     price: String,
     // TODO: Refactor this with DashMap?
     stocks_map: Arc<Mutex<HashMap<String, Arc<Mutex<Stock>>>>>,
+    
+    // New UI state fields
+    #[serde(skip)]
+    connection_status: String,
+    #[serde(skip)]
+    total_portfolio_value: f64,
+    #[serde(skip)]
+    daily_pnl: f64,
+    #[serde(skip)]
+    show_help: bool,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         let app = Self {
-            label: "Hello World!".to_owned(),
+            label: "Rusty Trading Platform".to_owned(),
             candle_toggle: true,
             line_toggle: false,
             value: Arc::new(Mutex::new(2.7)),
@@ -43,6 +53,10 @@ impl Default for TemplateApp {
             qty: String::new(),
             price: String::new(),
             stocks_map: Arc::new(Mutex::new(HashMap::new())),
+            connection_status: "Connected".to_owned(),
+            total_portfolio_value: 0.0,
+            daily_pnl: 0.0,
+            show_help: false,
         };
         app
     }
@@ -51,8 +65,8 @@ impl Default for TemplateApp {
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
+        // Set up custom dark theme for trading
+        Self::setup_custom_style(&cc.egui_ctx);
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
@@ -61,6 +75,31 @@ impl TemplateApp {
         }
 
         Default::default()
+    }
+
+    fn setup_custom_style(ctx: &egui::Context) {
+        let mut visuals = Visuals::dark();
+        
+        // Trading-specific color scheme
+        visuals.window_fill = Color32::from_rgb(20, 25, 30);
+        visuals.panel_fill = Color32::from_rgb(25, 30, 35);
+        visuals.faint_bg_color = Color32::from_rgb(30, 35, 40);
+        visuals.extreme_bg_color = Color32::from_rgb(15, 20, 25);
+        
+        // Button colors
+        visuals.widgets.inactive.bg_fill = Color32::from_rgb(40, 45, 50);
+        visuals.widgets.hovered.bg_fill = Color32::from_rgb(50, 55, 60);
+        visuals.widgets.active.bg_fill = Color32::from_rgb(60, 65, 70);
+        
+        // Trading colors
+        visuals.selection.bg_fill = Color32::from_rgb(0, 100, 0); // Green for profits
+        visuals.hyperlink_color = Color32::from_rgb(100, 150, 255);
+        
+        // Window styling
+        visuals.window_rounding = Rounding::same(8.0);
+        visuals.menu_rounding = Rounding::same(6.0);
+        
+        ctx.set_visuals(visuals);
     }
 }
 
@@ -71,64 +110,254 @@ impl eframe::App for TemplateApp {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Handle keyboard shortcuts
+        self.handle_keyboard_shortcuts(ctx, frame);
 
+        // Update data periodically
         let now = Utc::now();
         if self.last_update + Duration::from_secs(100) <= now {
-            let ctx_clone = ctx.clone();
-            let mut map = self.stocks_map.lock().unwrap();
-            for (key, val) in map.iter_mut() {
-                let request_template = ehttp::Request::get(format!("http://127.0.0.1:3000/daily?stock={key}"));
-                log::info!("now is {:?}", Utc::now());
-                log::info!("calling get_daily api and repaint graph");
-                let val_clone = Arc::clone(&val);
-                ehttp::fetch(request_template, move |result: ehttp::Result<ehttp::Response>| {
-                    let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
-                    val_clone.lock().unwrap().set_time_series(time_series);
-                });
-            }
-            ctx_clone.request_repaint();
+            self.update_market_data(ctx);
             self.last_update = now;
         }
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
+        // Top menu bar with enhanced styling
+        egui::TopBottomPanel::top("top_panel")
+            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8.0)))
+            .show(ctx, |ui| {
+                egui::menu::bar(ui, |ui| {
+                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                        // App title
+                        ui.label(RichText::new("🦀 Rusty Trading").size(18.0).color(Color32::from_rgb(255, 165, 0)));
+                        ui.separator();
+                        
+                        // File menu
+                        let is_web = cfg!(target_arch = "wasm32");
+                        if !is_web {
+                            ui.menu_button("File", |ui| {
+                                if ui.button("📊 New Watchlist").clicked() {
+                                    // TODO: Implement watchlist functionality
+                                }
+                                if ui.button("💾 Save Layout").clicked() {
+                                    // TODO: Implement layout saving
+                                }
+                                ui.separator();
+                                if ui.button("❌ Quit").clicked() {
+                                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                                }
+                            });
+                        }
+                        
+                        // View menu
+                        ui.menu_button("View", |ui| {
+                            ui.checkbox(&mut self.show_help, "📖 Show Help");
+                        });
+                        
+                        ui.add_space(16.0);
+                    });
+                    
+                    // Right side - status and theme toggle
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        egui::widgets::global_dark_light_mode_buttons(ui);
+                        ui.separator();
+                        
+                        // Connection status
+                        let status_color = if self.connection_status == "Connected" {
+                            Color32::from_rgb(0, 255, 0)
+                        } else {
+                            Color32::from_rgb(255, 0, 0)
+                        };
+                        ui.label(RichText::new(format!("🔗 {}", self.connection_status)).color(status_color));
+                        
+                        ui.separator();
+                        
+                        // Portfolio summary
+                        ui.label(RichText::new(format!("💰 ${:.2}", self.total_portfolio_value)).color(Color32::WHITE));
+                        
+                        let pnl_color = if self.daily_pnl >= 0.0 {
+                            Color32::from_rgb(0, 255, 0)
+                        } else {
+                            Color32::from_rgb(255, 0, 0)
+                        };
+                        ui.label(RichText::new(format!("📈 {:.2}%", self.daily_pnl)).color(pnl_color));
+                    });
+                });
+            });
 
-            egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        // Bottom status bar
+        egui::TopBottomPanel::bottom("status_bar")
+            .frame(Frame::none().fill(Color32::from_rgb(20, 25, 30)).inner_margin(Margin::same(4.0)))
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(12.0));
+                    ui.separator();
+                    ui.label(RichText::new(format!("📊 {} Active Positions", self.stocks_map.lock().unwrap().len())).size(12.0));
+                    
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui.small_button("❓").on_hover_text("Show keyboard shortcuts").clicked() {
+                            self.show_help = !self.show_help;
                         }
                     });
-                    ui.add_space(16.0);
-                }
-
-                egui::widgets::global_dark_light_mode_buttons(ui);
+                });
             });
-        });
 
-        egui::Window::new("Stock Picker").show(ctx, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().text_edit_width = 50.;
-                ui.label("Stock:");
+        // Left side panel for trading controls
+        egui::SidePanel::left("trading_panel")
+            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8.0)))
+            .min_width(250.0)
+            .show(ctx, |ui| {
+                self.show_trading_panel(ui);
+            });
+
+        // Central area for charts
+        egui::CentralPanel::default()
+            .frame(Frame::none().fill(Color32::from_rgb(20, 25, 30)))
+            .show(ctx, |ui| {
+                self.show_charts_area(ui, ctx);
+            });
+
+        // Help window
+        if self.show_help {
+            self.show_help_window(ctx);
+        }
+    }
+}
+
+impl TemplateApp {
+    fn handle_keyboard_shortcuts(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::F1) {
+                self.show_help = !self.show_help;
+            }
+            if i.modifiers.ctrl && i.key_pressed(egui::Key::Q) {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            if i.modifiers.ctrl && i.key_pressed(egui::Key::N) {
+                // TODO: New stock picker shortcut
+            }
+        });
+    }
+
+    fn update_market_data(&mut self, ctx: &egui::Context) {
+        let ctx_clone = ctx.clone();
+        let mut map = self.stocks_map.lock().unwrap();
+        for (key, val) in map.iter_mut() {
+            let request_template = ehttp::Request::get(format!("http://127.0.0.1:3000/daily?stock={key}"));
+            log::info!("now is {:?}", Utc::now());
+            log::info!("calling get_daily api and repaint graph");
+            let val_clone = Arc::clone(&val);
+            ehttp::fetch(request_template, move |result: ehttp::Result<ehttp::Response>| {
+                let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
+                val_clone.lock().unwrap().set_time_series(time_series);
+            });
+        }
+        ctx_clone.request_repaint();
+    }
+
+    fn show_trading_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading(RichText::new("📈 Trading Panel").size(16.0));
+        ui.separator();
+        
+        // Stock picker section
+        ui.group(|ui| {
+            ui.label(RichText::new("🔍 Add Stock").size(14.0).strong());
+            ui.horizontal(|ui| {
+                ui.label("Symbol:");
                 ui.text_edit_singleline(&mut self.stock);
             });
+            
             ui.horizontal(|ui| {
-                if ui.button("PICK").clicked() {
-                    self.stocks_map.lock().unwrap().insert(self.stock.clone(), 
-                        Arc::new(Mutex::new(Stock::default(&self.stock))));
+                if ui.button(RichText::new("➕ Add to Watchlist").size(12.0)).clicked() {
+                    if !self.stock.is_empty() {
+                        self.stocks_map.lock().unwrap().insert(
+                            self.stock.clone(),
+                            Arc::new(Mutex::new(Stock::default(&self.stock)))
+                        );
+                        self.stock.clear();
+                    }
                 }
             });
         });
+        
+        ui.add_space(10.0);
+        
+        // Quick trade section
+        ui.group(|ui| {
+            ui.label(RichText::new("⚡ Quick Trade").size(14.0).strong());
+            ui.horizontal(|ui| {
+                ui.label("Qty:");
+                ui.text_edit_singleline(&mut self.qty);
+            });
+            ui.horizontal(|ui| {
+                ui.label("Price:");
+                ui.text_edit_singleline(&mut self.price);
+            });
+            
+            ui.horizontal(|ui| {
+                let buy_button = ui.add(egui::Button::new(RichText::new("🟢 BUY").color(Color32::WHITE))
+                    .fill(Color32::from_rgb(0, 150, 0)));
+                if buy_button.clicked() {
+                    // TODO: Implement quick buy
+                }
+                
+                let sell_button = ui.add(egui::Button::new(RichText::new("🔴 SELL").color(Color32::WHITE))
+                    .fill(Color32::from_rgb(150, 0, 0)));
+                if sell_button.clicked() {
+                    // TODO: Implement quick sell
+                }
+            });
+        });
+        
+        ui.add_space(10.0);
+        
+        // Portfolio summary
+        ui.group(|ui| {
+            ui.label(RichText::new("💼 Portfolio").size(14.0).strong());
+            ui.label(format!("Total Value: ${:.2}", self.total_portfolio_value));
+            ui.label(format!("Daily P&L: {:.2}%", self.daily_pnl));
+            ui.label(format!("Active Positions: {}", self.stocks_map.lock().unwrap().len()));
+        });
+    }
 
-        for (_, stock) in self.stocks_map.lock().unwrap().iter_mut() {
-            create_new_stock_window(&mut stock.lock().unwrap(), ctx);
+    fn show_charts_area(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        if self.stocks_map.lock().unwrap().is_empty() {
+            ui.centered_and_justified(|ui| {
+                ui.label(RichText::new("📊 Add a stock symbol to start trading").size(16.0).color(Color32::GRAY));
+            });
+        } else {
+            for (_, stock) in self.stocks_map.lock().unwrap().iter_mut() {
+                create_new_stock_window(&mut stock.lock().unwrap(), ctx);
+            }
         }
+    }
+
+    fn show_help_window(&mut self, ctx: &egui::Context) {
+        egui::Window::new("📖 Keyboard Shortcuts")
+            .open(&mut self.show_help)
+            .frame(Frame::window(&ctx.style()).fill(Color32::from_rgb(25, 30, 35)))
+            .show(ctx, |ui| {
+                ui.label(RichText::new("Keyboard Shortcuts").size(16.0).strong());
+                ui.separator();
+                
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("F1").monospace());
+                    ui.label("Toggle this help window");
+                });
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Ctrl+Q").monospace());
+                    ui.label("Quit application");
+                });
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Ctrl+N").monospace());
+                    ui.label("New stock picker");
+                });
+                
+                ui.separator();
+                ui.label(RichText::new("Mouse Controls").size(14.0).strong());
+                ui.label("• Drag to pan charts");
+                ui.label("• Scroll to zoom");
+                ui.label("• Right-click for context menu");
+            });
     }
 }
 
