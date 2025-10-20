@@ -83,7 +83,7 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
             .fill(Color32::from_rgb(20, 25, 30))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0)))
-        .min_size(Vec2::new(600.0, 400.0))
+        .min_size(Vec2::new(150.0, 100.0))
         .show(ctx, |ui| {
             // Header with stock info
             ui.horizontal(|ui| {
@@ -112,6 +112,15 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
                         ui.label(format!("Ask: ${:.2}", stock.ask_price));
                         ui.separator();
                         ui.label(format!("Vol: {}", format_volume(stock.volume)));
+                    });
+                });
+
+                ui.group(|ui| {
+                    ui.label(RichText::new("📊 Chart Options").strong());
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut stock.candle_toggle, "🕯️ Candles");
+                        ui.checkbox(&mut stock.line_toggle, "📈 Line");
+                        ui.checkbox(&mut stock.volume_toggle, "📊 Volume");
                     });
                 });
             });
@@ -154,14 +163,7 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
                     });
                 });
                 
-                ui.group(|ui| {
-                    ui.label(RichText::new("📊 Chart Options").strong());
-                    ui.horizontal(|ui| {
-                        ui.checkbox(&mut stock.candle_toggle, "🕯️ Candles");
-                        ui.checkbox(&mut stock.line_toggle, "📈 Line");
-                        ui.checkbox(&mut stock.volume_toggle, "📊 Volume");
-                    });
-                });
+                
             });
             
             ui.separator();
@@ -286,7 +288,7 @@ fn plot_stock(ui: &mut egui::Ui, line_toggle: &bool, candle_toggle: &bool, time_
 fn plot_stock_enhanced(ui: &mut egui::Ui, stock: &mut Stock) -> egui::Response {
     let plot = Plot::new("enhanced_stock_plot")
         .view_aspect(2.0)
-        .min_size(Vec2::new(600.0, 300.0))
+        .min_size(Vec2::new(200.0, 100.0))
         .set_margin_fraction(Vec2::new(0.05, 0.1))
         .show_axes(true)
         .allow_zoom(true)
