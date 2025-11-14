@@ -69,10 +69,25 @@ impl Stock {
     }
 }
 
+fn call_simulate_v2(stock: &Stock) {
+    let stock_name = stock.stock_name.clone();
+    let url = format!("http://127.0.0.1:3000/simulate_v2?stock={}", stock_name);
+    
+    let req = ehttp::Request::json(url, "").unwrap();
+    ehttp::fetch(req, move |response| {
+        match response {
+            Ok(resp) => log::info!("Simulation v2 for {} done...", stock_name),
+            Err(e) => log::error!("Simulation v2 failed due to: {:?}", e),
+        }
+    });
+
+}
 
 pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
     // Update mock data for demonstration
     update_mock_market_data(stock);
+
+    call_simulate_v2(stock);
     
     let stock_name = stock.stock_name.clone();
     let mut open = stock.open;
