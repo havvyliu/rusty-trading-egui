@@ -242,9 +242,9 @@ impl TemplateApp {
         let ctx_clone = ctx.clone();
         let mut map = self.stocks_map.lock().unwrap();
         for (key, val) in map.iter_mut() {
-            let request_template = ehttp::Request::get(format!("http://127.0.0.1:3000/daily?stock={key}"));
+            let request_template = ehttp::Request::get(format!("http://127.0.0.1:3000/stock?stock={key}"));
             log::info!("now is {:?}", Utc::now());
-            log::info!("calling get_daily api and repaint graph");
+            log::info!("calling get_stock api and repaint graph");
             let val_clone = Arc::clone(&val);
             ehttp::fetch(request_template, move |result: ehttp::Result<ehttp::Response>| {
                 let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
