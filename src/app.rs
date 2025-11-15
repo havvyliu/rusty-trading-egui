@@ -116,7 +116,7 @@ impl eframe::App for TemplateApp {
 
         // Update data periodically
         let now = Utc::now();
-        if self.last_update + Duration::from_secs(100) <= now {
+        if self.last_update + Duration::from_secs(1) <= now {
             self.update_market_data(ctx);
             self.last_update = now;
         }
@@ -248,6 +248,7 @@ impl TemplateApp {
             let val_clone = Arc::clone(&val);
             ehttp::fetch(request_template, move |result: ehttp::Result<ehttp::Response>| {
                 let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
+                log::info!("time series size {}", time_series.data().len());
                 val_clone.lock().unwrap().set_time_series(time_series);
             });
         }
