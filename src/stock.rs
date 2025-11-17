@@ -96,8 +96,8 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
         .open(&mut open)
         .frame(Frame::window(&ctx.style())
             .fill(Color32::from_rgb(20, 25, 30))
-            .rounding(Rounding::same(8.0))
-            .inner_margin(Margin::same(12.0)))
+            .rounding(Rounding::same(8))
+            .inner_margin(Margin::same(12)))
         .min_size(Vec2::new(150.0, 100.0))
         .show(ctx, |ui| {
             // Header with stock info
@@ -351,7 +351,7 @@ fn plot_volume(time_series: &mut Arc<Mutex<TimeSeries>>, plot_ui: &mut PlotUi) {
         })
         .collect();
     
-    let volume_chart = BarChart::new(volume_bars)
+    let volume_chart = BarChart::new("Bar", volume_bars)
         .color(Color32::from_rgb(100, 100, 100))
         .name("Volume");
     
@@ -360,7 +360,7 @@ fn plot_volume(time_series: &mut Arc<Mutex<TimeSeries>>, plot_ui: &mut PlotUi) {
 
 fn add_crosshair_and_indicators(plot_ui: &mut PlotUi, current_price: f32) {
     // Add horizontal line for current price
-    let current_price_line = Line::new(PlotPoints::from(vec![
+    let current_price_line = Line::new("", PlotPoints::from(vec![
         [0.0, current_price as f64],
         [100.0, current_price as f64],
     ]))
@@ -385,7 +385,7 @@ fn plot_line(line_toggle: &bool, time_series: &mut Arc<Mutex<TimeSeries>>, plot_
             [i as f64, points.get(i).unwrap().close as f64]
         })
         .collect();
-    let line = Line::new(line_points);
+    let line = Line::new("LINE", line_points);
     plot_ui.line(line);
 }
 
@@ -414,6 +414,6 @@ fn plot_candle(candle_toggle: &bool, time_series: &mut Arc<Mutex<TimeSeries>>, p
                 .fill(color)
         })
         .collect();
-    let box_plot = BoxPlot::new(box_elements);
+    let box_plot = BoxPlot::new("CANDLE", box_elements);
     plot_ui.box_plot(box_plot);
 }

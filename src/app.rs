@@ -1,5 +1,5 @@
 use std::{collections::HashMap, iter::Map, sync::{Arc, Mutex}, time::Duration};
-use egui::{Color32, Stroke, Vec2, Visuals, FontId, RichText, Align, Layout, Rounding, Frame, Margin};
+use egui::{Align, Color32, CornerRadius, FontId, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, Visuals};
 use egui_plot::{BoxElem, BoxPlot, PlotUi};
 use egui_plot::{Line, PlotPoints};
 
@@ -96,8 +96,8 @@ impl TemplateApp {
         visuals.hyperlink_color = Color32::from_rgb(100, 150, 255);
         
         // Window styling
-        visuals.window_rounding = Rounding::same(8.0);
-        visuals.menu_rounding = Rounding::same(6.0);
+        visuals.window_corner_radius = CornerRadius::default().at_least(8);
+        visuals.menu_corner_radius = CornerRadius::default().at_least(6);
         
         ctx.set_visuals(visuals);
     }
@@ -123,7 +123,7 @@ impl eframe::App for TemplateApp {
 
         // Top menu bar with enhanced styling
         egui::TopBottomPanel::top("top_panel")
-            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8.0)))
+            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8)))
             .show(ctx, |ui| {
                 egui::menu::bar(ui, |ui| {
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
@@ -186,7 +186,7 @@ impl eframe::App for TemplateApp {
 
         // Bottom status bar
         egui::TopBottomPanel::bottom("status_bar")
-            .frame(Frame::none().fill(Color32::from_rgb(20, 25, 30)).inner_margin(Margin::same(4.0)))
+            .frame(Frame::none().fill(Color32::from_rgb(20, 25, 30)).inner_margin(Margin::same(4)))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(12.0));
@@ -203,7 +203,7 @@ impl eframe::App for TemplateApp {
 
         // Left side panel for trading controls
         egui::SidePanel::left("trading_panel")
-            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8.0)))
+            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8)))
             .min_width(250.0)
             .show(ctx, |ui| {
                 self.show_trading_panel(ui);
@@ -362,34 +362,34 @@ impl TemplateApp {
     }
 }
 
-fn plot(ui: &mut egui::Ui) -> egui::Response {
+// fn plot(ui: &mut egui::Ui) -> egui::Response {
 
-    let n = 128;
-    let line_points: PlotPoints = (0..=n)
-        .map(|index| {
-            use std::f64::consts::TAU;
-            let x = egui::remap(index as f64, 0.0..=n as f64, -TAU..=TAU);
-            [x, x.sin()]
-        })
-        .collect();
-    let line = Line::new(line_points);
-    let box_elements = (0..=n)
-        .map(|i| {
-            use std::f64::consts::TAU;
-            let x = egui::remap(i as f64, 0.0..=n as f64, -TAU..=TAU);
-            let y = x.sin();
-            let spread = BoxSpread::new(y, y + 1.0, y + 2.0, y + 3.0, y + 4.0);
-            BoxElem::new(x, spread)
-        })
-        .collect();
-    let box_plot = BoxPlot::new(box_elements);
-    egui_plot::Plot::new("a plot")
-        .height(200.0)
-        .show_axes(true)
-        .data_aspect(1.0)
-        .show(ui, |plot_ui| {
-            plot_ui.line(line);
-            plot_ui.box_plot(box_plot);
-        })
-        .response
-}
+//     let n = 128;
+//     let line_points: PlotPoints = (0..=n)
+//         .map(|index| {
+//             use std::f64::consts::TAU;
+//             let x = egui::remap(index as f64, 0.0..=n as f64, -TAU..=TAU);
+//             [x, x.sin()]
+//         })
+//         .collect();
+//     let line = Line::new(line_points);
+//     let box_elements = (0..=n)
+//         .map(|i| {
+//             use std::f64::consts::TAU;
+//             let x = egui::remap(i as f64, 0.0..=n as f64, -TAU..=TAU);
+//             let y = x.sin();
+//             let spread = BoxSpread::new(y, y + 1.0, y + 2.0, y + 3.0, y + 4.0);
+//             BoxElem::new(x, spread)
+//         })
+//         .collect();
+//     let box_plot = BoxPlot::new(box_elements);
+//     egui_plot::Plot::new("a plot")
+//         .height(200.0)
+//         .show_axes(true)
+//         .data_aspect(1.0)
+//         .show(ui, |plot_ui| {
+//             plot_ui.line(line);
+//             plot_ui.box_plot(box_plot);
+//         })
+//         .response
+// }
