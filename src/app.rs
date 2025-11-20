@@ -1,11 +1,8 @@
 use std::{collections::HashMap, iter::Map, sync::{Arc, Mutex}, time::Duration};
 use egui::{Align, Color32, CornerRadius, FontId, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, Visuals};
-use egui_plot::{BoxElem, BoxPlot, PlotUi};
-use egui_plot::{Line, PlotPoints};
 
 use chrono::{DateTime, Utc};
-use egui_plot::BoxSpread;
-use rusty_trading_lib::structs::{Point, TimeRange, TimeSeries, Transaction};
+use rusty_trading_model::structs::{Point, TimeRange, TimeSeries, Transaction};
 
 use crate::{create_new_stock_window, Stock};
 
@@ -203,7 +200,7 @@ impl eframe::App for TemplateApp {
 
         // Left side panel for trading controls
         egui::SidePanel::left("trading_panel")
-            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8)))
+            .frame(Frame::NONE.fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8)))
             .min_width(250.0)
             .show(ctx, |ui| {
                 self.show_trading_panel(ui);
@@ -211,7 +208,7 @@ impl eframe::App for TemplateApp {
 
         // Central area for charts
         egui::CentralPanel::default()
-            .frame(Frame::none().fill(Color32::from_rgb(20, 25, 30)))
+            .frame(Frame::NONE.fill(Color32::from_rgb(20, 25, 30)))
             .show(ctx, |ui| {
                 self.show_charts_area(ui, ctx);
             });
@@ -247,7 +244,7 @@ impl TemplateApp {
             log::info!("calling get_stock api and repaint graph");
             let val_clone = Arc::clone(&val);
             ehttp::fetch(request_template, move |result: ehttp::Result<ehttp::Response>| {
-                let time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
+                let mut time_series: TimeSeries = serde_json::from_slice(&result.unwrap().bytes).unwrap();
                 log::info!("time series size {}", time_series.data().len());
                 val_clone.lock().unwrap().set_time_series(time_series);
             });

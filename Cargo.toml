@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 
 [dependencies]
 # rusty trading dependencies
-rusty-trading-lib = {git = "https://github.com/havvyliu/rusty-trading.git"}
+rusty-trading-model = {git = "https://github.com/havvyliu/rusty-trading-model.git"}
 
 ehttp = { version = "0.5.0", features = [
     "json"

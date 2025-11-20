@@ -1,10 +1,9 @@
 
-use egui::{Color32, Stroke, Vec2, RichText, Frame, Margin, Rounding};
-use egui_plot::{BoxElem, BoxPlot, BoxSpread, PlotUi, Plot};
-use egui_plot::{Line, PlotPoints, Bar, BarChart};
-use std::sync::{Arc, Mutex};
-use chrono::{DateTime, Utc};
-use rusty_trading_lib::structs::{Point, TimeRange, TimeSeries, Transaction};
+use egui::{Color32, Frame, Margin, RichText, Rounding, Stroke, Vec2};
+use egui_plot::{Bar, BarChart, BoxElem, BoxPlot, BoxSpread, GridMark, Line, Plot, PlotPoints, PlotUi};
+use std::{ops::RangeInclusive, sync::{Arc, Mutex}};
+use chrono::{DateTime, TimeZone, Utc};
+use rusty_trading_model::structs::{Point, TimeRange, TimeSeries, Transaction};
 
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -262,7 +261,7 @@ fn show_order_confirmation_dialog(stock: &mut Stock, ctx: &egui::Context) {
 fn execute_trade(stock: &mut Stock) {
     let url = "http://127.0.0.1:3000/transaction";
     let stock_name = stock.stock_name.clone();
-    let price = stock.price.parse::<f32>().unwrap();
+    let price = stock.price.parse::<f64>().unwrap();
     let qty = stock.qty.parse::<u32>().unwrap();
     
     let transaction = if stock.pending_order_type == "BUY" {
@@ -286,21 +285,11 @@ fn execute_trade(stock: &mut Stock) {
     stock.price.clear();
 }
 
-fn plot_stock(ui: &mut egui::Ui, line_toggle: &bool, candle_toggle: &bool, time_series: &mut Arc<Mutex<TimeSeries>>) -> egui::Response {
-
-    egui_plot::Plot::new("stonk")
-        .view_aspect(1.6)
-        .min_size(Vec2::new(600.0, 200.0))
-        .set_margin_fraction(Vec2::new(0.1, 0.1))
-        .show_axes(true)
-        .show(ui, |plot_ui| {
-            plot_line(line_toggle, time_series, plot_ui);
-            plot_candle(candle_toggle, time_series, plot_ui);
-        })
-        .response
-}
-
 fn plot_stock_enhanced(ui: &mut egui::Ui, stock: &mut Stock) -> egui::Response {
+    let points = collect_time_series_points(&stock.time_series);
+    let time_step = estimate_time_step(&points);
+    let x_bounds = time_bounds(&points);
+
     let plot = Plot::new("enhanced_stock_plot")
         .view_aspect(2.0)
         .min_size(Vec2::new(200.0, 100.0))
@@ -310,43 +299,112 @@ fn plot_stock_enhanced(ui: &mut egui::Ui, stock: &mut Stock) -> egui::Response {
         .allow_drag(true)
         .allow_scroll(true)
         .show_background(false)
+        .x_axis_formatter(format_time_axis)
         .show_x(true)
         .show_y(true);
 
     plot.show(ui, |plot_ui| {
         // Plot line chart if enabled
         if stock.line_toggle {
-            plot_line(&stock.line_toggle, &mut stock.time_series, plot_ui);
+            plot_line(&points, plot_ui);
         }
         
         // Plot candlestick chart if enabled
         if stock.candle_toggle {
-            plot_candle(&stock.candle_toggle, &mut stock.time_series, plot_ui);
+            plot_candle(&points, plot_ui, time_step);
         }
         
         // Plot volume bars if enabled
         if stock.volume_toggle {
-            plot_volume(&mut stock.time_series, plot_ui);
+            plot_volume(&points, plot_ui, time_step);
         }
         
         // Add crosshair and price indicators
-        add_crosshair_and_indicators(plot_ui, stock.current_price);
+        add_crosshair_and_indicators(plot_ui, stock.current_price, x_bounds);
     }).response
 }
 
-fn plot_volume(time_series: &mut Arc<Mutex<TimeSeries>>, plot_ui: &mut PlotUi) {
-    let points: Vec<Point> = time_series.lock().unwrap().data().into_iter()
-        .map(|p: &Point| Point::new(p.open, p.high, p.low, p.close, p.volume))
-        .collect();
-    
-    let len = points.len();
-    if len == 0 { return; }
-    
-    let volume_bars: Vec<Bar> = (0..len)
-        .map(|i| {
-            let point = points.get(i).unwrap();
-            Bar::new(i as f64, point.volume as f64)
-                .width(0.8)
+fn collect_time_series_points(time_series: &Arc<Mutex<TimeSeries>>) -> Vec<Point> {
+    let mut guard = time_series.lock().unwrap();
+    guard.data().clone()
+}
+
+fn timestamp_to_f64(timestamp: &DateTime<Utc>) -> f64 {
+    timestamp.timestamp_millis() as f64
+}
+
+fn estimate_time_step(points: &[Point]) -> f64 {
+    const DEFAULT_STEP_MS: f64 = 60_000.0;
+
+    if points.len() < 2 {
+        return DEFAULT_STEP_MS;
+    }
+
+    let mut total = 0.0;
+    let mut count = 0;
+
+    for window in points.windows(2) {
+        let diff = window[1]
+            .timestamp
+            .signed_duration_since(window[0].timestamp)
+            .num_milliseconds()
+            .abs() as f64;
+
+        if diff > 0.0 {
+            total += diff;
+            count += 1;
+        }
+    }
+
+    if count > 0 {
+        (total / count as f64).max(1.0)
+    } else {
+        DEFAULT_STEP_MS
+    }
+}
+
+fn time_bounds(points: &[Point]) -> Option<(f64, f64)> {
+    points.iter().map(|p| timestamp_to_f64(&p.timestamp)).fold(
+        None,
+        |acc, ts| match acc {
+            Some((min_ts, max_ts)) => Some((min_ts.min(ts), max_ts.max(ts))),
+            None => Some((ts, ts)),
+        },
+    )
+}
+
+fn format_time_axis(mark: GridMark, range: &RangeInclusive<f64>) -> String {
+    if !mark.value.is_finite() {
+        return String::new();
+    }
+
+    let span_ms = (*range.end() - *range.start()).abs();
+    let date_time = Utc.timestamp_millis(mark.value as i64);
+
+    const DAY_MS: f64 = 86_400_000.0;
+    const HOUR_MS: f64 = 3_600_000.0;
+
+    if span_ms > DAY_MS {
+        date_time.format("%Y-%m-%d").to_string()
+    } else if span_ms > HOUR_MS {
+        date_time.format("%H:%M").to_string()
+    } else {
+        date_time.format("%H:%M:%S").to_string()
+    }
+}
+
+fn plot_volume(points: &[Point], plot_ui: &mut PlotUi, time_step: f64) {
+    if points.is_empty() {
+        return;
+    }
+
+    let bar_width = (time_step * 0.6).max(1.0);
+
+    let volume_bars: Vec<Bar> = points
+        .iter()
+        .map(|point| {
+            Bar::new(timestamp_to_f64(&point.timestamp), point.volume as f64)
+                .width(bar_width)
                 .fill(Color32::from_rgba_unmultiplied(100, 100, 100, 100))
         })
         .collect();
@@ -358,62 +416,82 @@ fn plot_volume(time_series: &mut Arc<Mutex<TimeSeries>>, plot_ui: &mut PlotUi) {
     plot_ui.bar_chart(volume_chart);
 }
 
-fn add_crosshair_and_indicators(plot_ui: &mut PlotUi, current_price: f32) {
-    // Add horizontal line for current price
-    let current_price_line = Line::new("", PlotPoints::from(vec![
-        [0.0, current_price as f64],
-        [100.0, current_price as f64],
-    ]))
-    .color(Color32::from_rgb(255, 165, 0))
-    .style(egui_plot::LineStyle::Dashed { length: 10.0 })
-    .width(2.0)
-    .name("Current Price");
-    
-    plot_ui.line(current_price_line);
+fn add_crosshair_and_indicators(
+    plot_ui: &mut PlotUi,
+    current_price: f32,
+    x_bounds: Option<(f64, f64)>,
+) {
+    if let Some((min_x, max_x)) = x_bounds {
+        let (start_x, end_x) = if (max_x - min_x).abs() < f64::EPSILON {
+            (min_x - 1.0, max_x + 1.0)
+        } else {
+            (min_x, max_x)
+        };
+
+        let current_price_line = Line::new(
+            "",
+            PlotPoints::from(vec![
+                [start_x, current_price as f64],
+                [end_x, current_price as f64],
+            ]),
+        )
+        .color(Color32::from_rgb(255, 165, 0))
+        .style(egui_plot::LineStyle::Dashed { length: 10.0 })
+        .width(2.0)
+        .name("Current Price");
+        
+        plot_ui.line(current_price_line);
+    }
 }
 
-fn plot_line(line_toggle: &bool, time_series: &mut Arc<Mutex<TimeSeries>>, plot_ui:&mut PlotUi) {
-    if !line_toggle {return;}
-    let points: Vec<Point> = time_series.lock().unwrap().data().into_iter()
-        .map(|p: &Point| {
-            Point::new(p.open, p.high, p.low, p.close, p.volume)
-        })
+fn plot_line(points: &[Point], plot_ui: &mut PlotUi) {
+    if points.is_empty() {
+        return;
+    }
+
+    let line_points: PlotPoints = points
+        .iter()
+        .map(|point| [timestamp_to_f64(&point.timestamp), point.close as f64])
         .collect();
-    let len = points.len();
-    let line_points: PlotPoints = (0..len)
-        .map(|i| {
-            [i as f64, points.get(i).unwrap().close as f64]
-        })
-        .collect();
+
     let line = Line::new("LINE", line_points);
     plot_ui.line(line);
 }
 
-fn plot_candle(candle_toggle: &bool, time_series: &mut Arc<Mutex<TimeSeries>>, plot_ui:&mut PlotUi) {
-    if !candle_toggle {return;}
-    let points: Vec<Point> = time_series.lock().unwrap().data().into_iter()
-        .map(|p: &Point| {
-            Point::new(p.open, p.high, p.low, p.close, p.volume)
-        })
-        .collect();
-    let len = points.len();
-    let box_elements = (1..len)
-        .map(|i| {
-            let point = points.get(i).unwrap();
-            let spread = BoxSpread::new(point.low as f64, point.open as f64, point.close as f64, point.close as f64, point.high as f64);
-            let mut color = Color32::LIGHT_GREEN;
-            if let Some(last_point) = points.get(i - 1) {
-                if last_point.close > point.close {
-                    color = Color32::LIGHT_RED;
-                }
+fn plot_candle(points: &[Point], plot_ui: &mut PlotUi, time_step: f64) {
+    if points.is_empty() {
+        return;
+    }
+
+    let candle_width = (time_step * 0.6).max(1.0);
+    let whisker_width = (candle_width * 0.4).max(1.0);
+    let mut box_elements = Vec::with_capacity(points.len());
+    let mut previous_close: Option<f64> = None;
+
+    for point in points {
+        let spread = BoxSpread::new(point.low, point.open, point.close, point.close, point.high);
+        let mut color = Color32::LIGHT_GREEN;
+
+        if let Some(last_close) = previous_close {
+            if last_close > point.close {
+                color = Color32::LIGHT_RED;
             }
-            BoxElem::new(i as f64, spread)
-                .box_width(1.)
-                .stroke(Stroke::new(1., color))
-                .whisker_width(0.5)
-                .fill(color)
-        })
-        .collect();
+        }
+
+        previous_close = Some(point.close);
+
+        box_elements.push(
+            BoxElem::new(timestamp_to_f64(&point.timestamp), spread)
+                .box_width(candle_width)
+                .stroke(Stroke::new(2., color))
+                .whisker_width(whisker_width)
+                .fill(color),
+        );
+    }
+
     let box_plot = BoxPlot::new("CANDLE", box_elements);
     plot_ui.box_plot(box_plot);
 }
+
+
+//TODO: Enhance the BoxElem so tht it has better tooltips

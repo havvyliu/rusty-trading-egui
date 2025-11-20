@@ -2268,9 +2268,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
-name = "rusty-trading-lib"
+name = "rusty-trading-model"
 version = "0.1.0"
-source = "git+https://github.com/havvyliu/rusty-trading.git#860f3914384d7b180a31d9ef919d6bc2bf6dd4db"
+source = "git+https://github.com/havvyliu/rusty-trading-model.git#0edacfe90eaa61d6753e1a41ee317d90292a9d35"
 dependencies = [
  "chrono",
  "serde",
@@ -2287,7 +2287,7 @@ dependencies = [
  "ehttp",
  "env_logger",
  "log",
- "rusty-trading-lib",
+ "rusty-trading-model",
  "serde",
  "serde_json",
  "wasm-bindgen-futures",
