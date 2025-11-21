@@ -132,7 +132,7 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
                 ui.group(|ui| {
                     ui.label(RichText::new("📊 Chart Options").strong());
                     ui.horizontal(|ui| {
-                        ui.checkbox(&mut stock.candle_toggle, "🕯️ Candles");
+                        ui.checkbox(&mut stock.candle_toggle, "🕯 Candles");
                         ui.checkbox(&mut stock.line_toggle, "📈 Line");
                         ui.checkbox(&mut stock.volume_toggle, "📊 Volume");
                     });
@@ -288,7 +288,6 @@ fn execute_trade(stock: &mut Stock) {
 fn plot_stock_enhanced(ui: &mut egui::Ui, stock: &mut Stock) -> egui::Response {
     let points = collect_time_series_points(&stock.time_series);
     let time_step = estimate_time_step(&points);
-    let x_bounds = time_bounds(&points);
 
     let plot = Plot::new("enhanced_stock_plot")
         .view_aspect(2.0)
@@ -299,6 +298,7 @@ fn plot_stock_enhanced(ui: &mut egui::Ui, stock: &mut Stock) -> egui::Response {
         .allow_drag(true)
         .allow_scroll(true)
         .show_background(false)
+        .show_grid(false)
         .x_axis_formatter(format_time_axis)
         .show_x(true)
         .show_y(true);
@@ -318,9 +318,6 @@ fn plot_stock_enhanced(ui: &mut egui::Ui, stock: &mut Stock) -> egui::Response {
         if stock.volume_toggle {
             plot_volume(&points, plot_ui, time_step);
         }
-        
-        // Add crosshair and price indicators
-        add_crosshair_and_indicators(plot_ui, stock.current_price, x_bounds);
     }).response
 }
 
@@ -414,34 +411,6 @@ fn plot_volume(points: &[Point], plot_ui: &mut PlotUi, time_step: f64) {
         .name("Volume");
     
     plot_ui.bar_chart(volume_chart);
-}
-
-fn add_crosshair_and_indicators(
-    plot_ui: &mut PlotUi,
-    current_price: f32,
-    x_bounds: Option<(f64, f64)>,
-) {
-    if let Some((min_x, max_x)) = x_bounds {
-        let (start_x, end_x) = if (max_x - min_x).abs() < f64::EPSILON {
-            (min_x - 1.0, max_x + 1.0)
-        } else {
-            (min_x, max_x)
-        };
-
-        let current_price_line = Line::new(
-            "",
-            PlotPoints::from(vec![
-                [start_x, current_price as f64],
-                [end_x, current_price as f64],
-            ]),
-        )
-        .color(Color32::from_rgb(255, 165, 0))
-        .style(egui_plot::LineStyle::Dashed { length: 10.0 })
-        .width(2.0)
-        .name("Current Price");
-        
-        plot_ui.line(current_price_line);
-    }
 }
 
 fn plot_line(points: &[Point], plot_ui: &mut PlotUi) {

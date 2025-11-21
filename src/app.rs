@@ -1,5 +1,5 @@
 use std::{collections::HashMap, iter::Map, sync::{Arc, Mutex}, time::Duration};
-use egui::{Align, Color32, CornerRadius, FontId, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, Visuals};
+use egui::{Align, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, Visuals};
 
 use chrono::{DateTime, Utc};
 use rusty_trading_model::structs::{Point, TimeRange, TimeSeries, Transaction};
@@ -64,6 +64,7 @@ impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // Set up custom dark theme for trading
         Self::setup_custom_style(&cc.egui_ctx);
+        Self::setup_custom_fonts(&cc.egui_ctx);
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
@@ -98,6 +99,41 @@ impl TemplateApp {
         
         ctx.set_visuals(visuals);
     }
+
+    fn setup_custom_fonts(ctx: &egui::Context) {
+        let mut fonts = FontDefinitions::default();
+
+        fonts.font_data.insert(
+            "pt-root-light".into(),
+            Arc::new(FontData::from_static(include_bytes!("../assets/fonts/pt-root-ui_light.ttf"))),
+        );
+        fonts.font_data.insert(
+            "pt-root-regular".into(),
+            Arc::new(FontData::from_static(include_bytes!("../assets/fonts/pt-root-ui_regular.ttf"))),
+        );
+        fonts.font_data.insert(
+            "pt-root-medium".into(),
+            Arc::new(FontData::from_static(include_bytes!("../assets/fonts/pt-root-ui_medium.ttf"))),
+        );
+        fonts.font_data.insert(
+            "pt-root-bold".into(),
+            Arc::new(FontData::from_static(include_bytes!("../assets/fonts/pt-root-ui_bold.ttf"))),
+        );
+
+        if let Some(proportional) = fonts.families.get_mut(&FontFamily::Proportional) {
+            proportional.insert(0, "pt-root-regular".into());
+            proportional.insert(1, "pt-root-medium".into());
+            proportional.insert(2, "pt-root-light".into());
+            proportional.insert(3, "pt-root-bold".into());
+        }
+
+        if let Some(monospace) = fonts.families.get_mut(&FontFamily::Monospace) {
+            monospace.insert(0, "pt-root-medium".into());
+            monospace.insert(1, "pt-root-bold".into());
+        }
+
+        ctx.set_fonts(fonts);
+    }
 }
 
 impl eframe::App for TemplateApp {
@@ -125,7 +161,7 @@ impl eframe::App for TemplateApp {
                 egui::menu::bar(ui, |ui| {
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                         // App title
-                        ui.label(RichText::new("🦀 Rusty Trading").size(18.0).color(Color32::from_rgb(255, 165, 0)));
+                        ui.label(RichText::new("Rusty Trading").size(18.0).color(Color32::from_rgb(255, 165, 0)));
                         ui.separator();
                         
                         // File menu
