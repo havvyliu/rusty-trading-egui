@@ -1,8 +1,8 @@
-use std::{collections::HashMap, iter::Map, sync::{Arc, Mutex}, time::Duration};
-use egui::{Align, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, Visuals};
+use std::{collections::HashMap, sync::{Arc, Mutex}, time::Duration};
+use egui::{Align, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, Frame, Layout, Margin, RichText, Rounding, Stroke, Theme, Vec2, Visuals};
 
 use chrono::{DateTime, Utc};
-use rusty_trading_model::structs::{Point, TimeRange, TimeSeries, Transaction};
+use rusty_trading_model::structs::{TimeSeries};
 
 use crate::{create_new_stock_window, Stock};
 
@@ -79,15 +79,15 @@ impl TemplateApp {
         let mut visuals = Visuals::dark();
         
         // Trading-specific color scheme
-        visuals.window_fill = Color32::from_rgb(20, 25, 30);
-        visuals.panel_fill = Color32::from_rgb(25, 30, 35);
-        visuals.faint_bg_color = Color32::from_rgb(30, 35, 40);
-        visuals.extreme_bg_color = Color32::from_rgb(15, 20, 25);
+        // visuals.window_fill = Color32::from_rgb(20, 25, 30);
+        // visuals.panel_fill = Color32::from_rgb(25, 30, 35);
+        // visuals.faint_bg_color = Color32::from_rgb(30, 35, 40);
+        // visuals.extreme_bg_color = Color32::from_rgb(15, 20, 25);
         
         // Button colors
-        visuals.widgets.inactive.bg_fill = Color32::from_rgb(40, 45, 50);
-        visuals.widgets.hovered.bg_fill = Color32::from_rgb(50, 55, 60);
-        visuals.widgets.active.bg_fill = Color32::from_rgb(60, 65, 70);
+        // visuals.widgets.inactive.bg_fill = Color32::from_rgb(40, 45, 50);
+        // visuals.widgets.hovered.bg_fill = Color32::from_rgb(50, 55, 60);
+        // visuals.widgets.active.bg_fill = Color32::from_rgb(60, 65, 70);
         
         // Trading colors
         visuals.selection.bg_fill = Color32::from_rgb(0, 100, 0); // Green for profits
@@ -97,7 +97,7 @@ impl TemplateApp {
         visuals.window_corner_radius = CornerRadius::default().at_least(8);
         visuals.menu_corner_radius = CornerRadius::default().at_least(6);
         
-        ctx.set_visuals(visuals);
+        ctx.set_theme(Theme::Dark);
     }
 
     fn setup_custom_fonts(ctx: &egui::Context) {
@@ -156,7 +156,6 @@ impl eframe::App for TemplateApp {
 
         // Top menu bar with enhanced styling
         egui::TopBottomPanel::top("top_panel")
-            .frame(Frame::none().fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8)))
             .show(ctx, |ui| {
                 egui::menu::bar(ui, |ui| {
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
@@ -191,7 +190,7 @@ impl eframe::App for TemplateApp {
                     
                     // Right side - status and theme toggle
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        egui::widgets::global_dark_light_mode_buttons(ui);
+                        egui::widgets::global_theme_preference_buttons(ui);
                         ui.separator();
                         
                         // Connection status
@@ -219,7 +218,6 @@ impl eframe::App for TemplateApp {
 
         // Bottom status bar
         egui::TopBottomPanel::bottom("status_bar")
-            .frame(Frame::none().fill(Color32::from_rgb(20, 25, 30)).inner_margin(Margin::same(4)))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(12.0));
@@ -236,7 +234,6 @@ impl eframe::App for TemplateApp {
 
         // Left side panel for trading controls
         egui::SidePanel::left("trading_panel")
-            .frame(Frame::NONE.fill(Color32::from_rgb(25, 30, 35)).inner_margin(Margin::same(8)))
             .min_width(250.0)
             .show(ctx, |ui| {
                 self.show_trading_panel(ui);
@@ -244,7 +241,6 @@ impl eframe::App for TemplateApp {
 
         // Central area for charts
         egui::CentralPanel::default()
-            .frame(Frame::NONE.fill(Color32::from_rgb(20, 25, 30)))
             .show(ctx, |ui| {
                 self.show_charts_area(ui, ctx);
             });
@@ -328,13 +324,13 @@ impl TemplateApp {
             });
             
             ui.horizontal(|ui| {
-                let buy_button = ui.add(egui::Button::new(RichText::new("🟢 BUY").color(Color32::WHITE))
+                let buy_button = ui.add(egui::Button::new(RichText::new("BUY").color(Color32::WHITE))
                     .fill(Color32::from_rgb(0, 150, 0)));
                 if buy_button.clicked() {
                     // TODO: Implement quick buy
                 }
                 
-                let sell_button = ui.add(egui::Button::new(RichText::new("🔴 SELL").color(Color32::WHITE))
+                let sell_button = ui.add(egui::Button::new(RichText::new("SELL").color(Color32::WHITE))
                     .fill(Color32::from_rgb(150, 0, 0)));
                 if sell_button.clicked() {
                     // TODO: Implement quick sell
@@ -368,7 +364,6 @@ impl TemplateApp {
     fn show_help_window(&mut self, ctx: &egui::Context) {
         egui::Window::new("📖 Keyboard Shortcuts")
             .open(&mut self.show_help)
-            .frame(Frame::window(&ctx.style()).fill(Color32::from_rgb(25, 30, 35)))
             .show(ctx, |ui| {
                 ui.label(RichText::new("Keyboard Shortcuts").size(16.0).strong());
                 ui.separator();

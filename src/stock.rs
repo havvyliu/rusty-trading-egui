@@ -1,5 +1,5 @@
 
-use egui::{Color32, Frame, Margin, RichText, Rounding, Stroke, Vec2};
+use egui::{Color32, Frame, Margin, RichText, Rounding, Stroke, Theme, Vec2};
 use egui_plot::{Bar, BarChart, BoxElem, BoxPlot, BoxSpread, GridMark, Line, Plot, PlotPoints, PlotUi};
 use std::{ops::RangeInclusive, sync::{Arc, Mutex}};
 use chrono::{DateTime, TimeZone, Utc};
@@ -93,10 +93,6 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
 
     if let Some(response) = egui::Window::new(format!("📈 {}", stock_name))
         .open(&mut open)
-        .frame(Frame::window(&ctx.style())
-            .fill(Color32::from_rgb(20, 25, 30))
-            .rounding(Rounding::same(8))
-            .inner_margin(Margin::same(12)))
         .min_size(Vec2::new(150.0, 100.0))
         .show(ctx, |ui| {
             // Header with stock info
@@ -153,7 +149,7 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
                     });
                     
                     ui.horizontal(|ui| {
-                        let buy_button = ui.add(egui::Button::new(RichText::new("🟢 BUY").color(Color32::WHITE))
+                        let buy_button = ui.add(egui::Button::new(RichText::new("BUY").color(Color32::WHITE))
                             .fill(Color32::from_rgb(0, 150, 0)));
                         if buy_button.clicked() {
                             if validate_trade_inputs(&stock.qty, &stock.price) {
@@ -162,7 +158,7 @@ pub fn create_new_stock_window(stock: &mut Stock, ctx: &egui::Context) {
                             }
                         }
                         
-                        let sell_button = ui.add(egui::Button::new(RichText::new("🔴 SELL").color(Color32::WHITE))
+                        let sell_button = ui.add(egui::Button::new(RichText::new("SELL").color(Color32::WHITE))
                             .fill(Color32::from_rgb(150, 0, 0)));
                         if sell_button.clicked() {
                             if validate_trade_inputs(&stock.qty, &stock.price) {
@@ -224,7 +220,6 @@ fn validate_trade_inputs(qty: &str, price: &str) -> bool {
 
 fn show_order_confirmation_dialog(stock: &mut Stock, ctx: &egui::Context) {
     egui::Window::new("🔔 Confirm Order")
-        .frame(Frame::window(&ctx.style()).fill(Color32::from_rgb(30, 35, 40)))
         .collapsible(false)
         .resizable(false)
         .show(ctx, |ui| {
