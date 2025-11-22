@@ -160,7 +160,7 @@ impl eframe::App for TemplateApp {
                 egui::menu::bar(ui, |ui| {
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                         // App title
-                        ui.label(RichText::new("Rusty Trading").size(18.0).color(Color32::from_rgb(255, 165, 0)));
+                        ui.label(RichText::new("Rusty Trading").size(23.0).color(Color32::from_rgb(255, 165, 0)));
                         ui.separator();
                         
                         // File menu
@@ -185,7 +185,7 @@ impl eframe::App for TemplateApp {
                             ui.checkbox(&mut self.show_help, "📖 Show Help");
                         });
                         
-                        ui.add_space(16.0);
+                        ui.add_space(26.0);
                     });
                     
                     // Right side - status and theme toggle
@@ -204,7 +204,7 @@ impl eframe::App for TemplateApp {
                         ui.separator();
                         
                         // Portfolio summary
-                        ui.label(RichText::new(format!("💰 ${:.2}", self.total_portfolio_value)).color(Color32::WHITE));
+                        ui.label(RichText::new(format!("💰 ${:.2}", self.total_portfolio_value)));
                         
                         let pnl_color = if self.daily_pnl >= 0.0 {
                             Color32::from_rgb(0, 255, 0)
@@ -220,9 +220,9 @@ impl eframe::App for TemplateApp {
         egui::TopBottomPanel::bottom("status_bar")
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(12.0));
+                    ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(18.0));
                     ui.separator();
-                    ui.label(RichText::new(format!("📊 {} Active Positions", self.stocks_map.lock().unwrap().len())).size(12.0));
+                    ui.label(RichText::new(format!("📊 {} Active Positions", self.stocks_map.lock().unwrap().len())).size(18.0));
                     
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui.small_button("❓").on_hover_text("Show keyboard shortcuts").clicked() {
