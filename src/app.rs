@@ -157,7 +157,7 @@ impl eframe::App for TemplateApp {
         // Top menu bar with enhanced styling
         egui::TopBottomPanel::top("top_panel")
             .show(ctx, |ui| {
-                egui::menu::bar(ui, |ui| {
+                egui::MenuBar::new().ui(ui, |ui| {
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                         // App title
                         ui.label(RichText::new("Rusty Trading").size(23.0).color(Color32::from_rgb(255, 165, 0)));
@@ -220,7 +220,7 @@ impl eframe::App for TemplateApp {
         egui::TopBottomPanel::bottom("status_bar")
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(18.0));
+                    ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(20.0));
                     ui.separator();
                     ui.label(RichText::new(format!("📊 {} Active Positions", self.stocks_map.lock().unwrap().len())).size(18.0));
                     
