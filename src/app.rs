@@ -26,7 +26,7 @@ pub struct TemplateApp {
     price: String,
     // TODO: Refactor this with DashMap?
     stocks_map: Arc<Mutex<HashMap<String, Arc<Mutex<Stock>>>>>,
-    
+
     // New UI state fields
     #[serde(skip)]
     connection_status: String,
@@ -77,26 +77,15 @@ impl TemplateApp {
 
     fn setup_custom_style(ctx: &egui::Context) {
         let mut visuals = Visuals::dark();
-        
-        // Trading-specific color scheme
-        // visuals.window_fill = Color32::from_rgb(20, 25, 30);
-        // visuals.panel_fill = Color32::from_rgb(25, 30, 35);
-        // visuals.faint_bg_color = Color32::from_rgb(30, 35, 40);
-        // visuals.extreme_bg_color = Color32::from_rgb(15, 20, 25);
-        
-        // Button colors
-        // visuals.widgets.inactive.bg_fill = Color32::from_rgb(40, 45, 50);
-        // visuals.widgets.hovered.bg_fill = Color32::from_rgb(50, 55, 60);
-        // visuals.widgets.active.bg_fill = Color32::from_rgb(60, 65, 70);
-        
+
         // Trading colors
         visuals.selection.bg_fill = Color32::from_rgb(0, 100, 0); // Green for profits
         visuals.hyperlink_color = Color32::from_rgb(100, 150, 255);
-        
+
         // Window styling
         visuals.window_corner_radius = CornerRadius::default().at_least(8);
         visuals.menu_corner_radius = CornerRadius::default().at_least(6);
-        
+
         ctx.set_theme(Theme::Dark);
     }
 
@@ -162,7 +151,7 @@ impl eframe::App for TemplateApp {
                         // App title
                         ui.label(RichText::new("Rusty Trading").size(23.0).color(Color32::from_rgb(255, 165, 0)));
                         ui.separator();
-                        
+
                         // File menu
                         let is_web = cfg!(target_arch = "wasm32");
                         if !is_web {
@@ -179,20 +168,20 @@ impl eframe::App for TemplateApp {
                                 }
                             });
                         }
-                        
+
                         // View menu
                         ui.menu_button("View", |ui| {
                             ui.checkbox(&mut self.show_help, "📖 Show Help");
                         });
-                        
+
                         ui.add_space(26.0);
                     });
-                    
+
                     // Right side - status and theme toggle
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         egui::widgets::global_theme_preference_buttons(ui);
                         ui.separator();
-                        
+
                         // Connection status
                         let status_color = if self.connection_status == "Connected" {
                             Color32::from_rgb(0, 255, 0)
@@ -200,12 +189,12 @@ impl eframe::App for TemplateApp {
                             Color32::from_rgb(255, 0, 0)
                         };
                         ui.label(RichText::new(format!("🔗 {}", self.connection_status)).color(status_color));
-                        
+
                         ui.separator();
-                        
+
                         // Portfolio summary
                         ui.label(RichText::new(format!("💰 ${:.2}", self.total_portfolio_value)));
-                        
+
                         let pnl_color = if self.daily_pnl >= 0.0 {
                             Color32::from_rgb(0, 255, 0)
                         } else {
@@ -223,7 +212,7 @@ impl eframe::App for TemplateApp {
                     ui.label(RichText::new(format!("⏰ {}", now.format("%H:%M:%S UTC"))).size(20.0));
                     ui.separator();
                     ui.label(RichText::new(format!("📊 {} Active Positions", self.stocks_map.lock().unwrap().len())).size(18.0));
-                    
+
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui.small_button("❓").on_hover_text("Show keyboard shortcuts").clicked() {
                             self.show_help = !self.show_help;
@@ -287,7 +276,7 @@ impl TemplateApp {
     fn show_trading_panel(&mut self, ui: &mut egui::Ui) {
         ui.heading(RichText::new("📈 Trading Panel").size(16.0));
         ui.separator();
-        
+
         // Stock picker section
         ui.group(|ui| {
             ui.label(RichText::new("🔍 Add Stock").size(14.0).strong());
@@ -295,7 +284,7 @@ impl TemplateApp {
                 ui.label("Symbol:");
                 ui.text_edit_singleline(&mut self.stock);
             });
-            
+
             ui.horizontal(|ui| {
                 if ui.button(RichText::new("➕ Add to Watchlist").size(12.0)).clicked() {
                     if !self.stock.is_empty() {
@@ -308,9 +297,9 @@ impl TemplateApp {
                 }
             });
         });
-        
+
         ui.add_space(10.0);
-        
+
         // Quick trade section
         ui.group(|ui| {
             ui.label(RichText::new("⚡ Quick Trade").size(14.0).strong());
@@ -322,14 +311,14 @@ impl TemplateApp {
                 ui.label("Price:");
                 ui.text_edit_singleline(&mut self.price);
             });
-            
+
             ui.horizontal(|ui| {
                 let buy_button = ui.add(egui::Button::new(RichText::new("BUY").color(Color32::WHITE))
                     .fill(Color32::from_rgb(0, 150, 0)));
                 if buy_button.clicked() {
                     // TODO: Implement quick buy
                 }
-                
+
                 let sell_button = ui.add(egui::Button::new(RichText::new("SELL").color(Color32::WHITE))
                     .fill(Color32::from_rgb(150, 0, 0)));
                 if sell_button.clicked() {
@@ -337,9 +326,9 @@ impl TemplateApp {
                 }
             });
         });
-        
+
         ui.add_space(10.0);
-        
+
         // Portfolio summary
         ui.group(|ui| {
             ui.label(RichText::new("💼 Portfolio").size(14.0).strong());
@@ -367,7 +356,7 @@ impl TemplateApp {
             .show(ctx, |ui| {
                 ui.label(RichText::new("Keyboard Shortcuts").size(16.0).strong());
                 ui.separator();
-                
+
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("F1").monospace());
                     ui.label("Toggle this help window");
@@ -380,7 +369,7 @@ impl TemplateApp {
                     ui.label(RichText::new("Ctrl+N").monospace());
                     ui.label("New stock picker");
                 });
-                
+
                 ui.separator();
                 ui.label(RichText::new("Mouse Controls").size(14.0).strong());
                 ui.label("• Drag to pan charts");
@@ -389,35 +378,3 @@ impl TemplateApp {
             });
     }
 }
-
-// fn plot(ui: &mut egui::Ui) -> egui::Response {
-
-//     let n = 128;
-//     let line_points: PlotPoints = (0..=n)
-//         .map(|index| {
-//             use std::f64::consts::TAU;
-//             let x = egui::remap(index as f64, 0.0..=n as f64, -TAU..=TAU);
-//             [x, x.sin()]
-//         })
-//         .collect();
-//     let line = Line::new(line_points);
-//     let box_elements = (0..=n)
-//         .map(|i| {
-//             use std::f64::consts::TAU;
-//             let x = egui::remap(i as f64, 0.0..=n as f64, -TAU..=TAU);
-//             let y = x.sin();
-//             let spread = BoxSpread::new(y, y + 1.0, y + 2.0, y + 3.0, y + 4.0);
-//             BoxElem::new(x, spread)
-//         })
-//         .collect();
-//     let box_plot = BoxPlot::new(box_elements);
-//     egui_plot::Plot::new("a plot")
-//         .height(200.0)
-//         .show_axes(true)
-//         .data_aspect(1.0)
-//         .show(ui, |plot_ui| {
-//             plot_ui.line(line);
-//             plot_ui.box_plot(box_plot);
-//         })
-//         .response
-// }
