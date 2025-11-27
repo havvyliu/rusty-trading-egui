@@ -142,6 +142,7 @@ impl eframe::App for TemplateApp {
             self.update_market_data(ctx);
             self.last_update = now;
         }
+        ctx.request_repaint_after(Duration::from_millis(50));
 
         // Top menu bar with enhanced styling
         egui::TopBottomPanel::top("top_panel")
