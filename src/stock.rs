@@ -452,8 +452,20 @@ fn plot_candle(points: &[Point], plot_ui: &mut PlotUi, time_step: f64) {
                 .fill(color),
         );
     }
+    let formatter = Box::new(|elem: &BoxElem, _plot: &BoxPlot| {
+        let spread = &elem.spread;
+        format!(
+            "Open: {open:.2}\nClose: {close:.2}\nLow: {low:.2}\nHigh: {high:.2}",
+            open = spread.quartile3,
+            close = spread.quartile1,
+            low = spread.lower_whisker,
+            high = spread.upper_whisker,
+        )
+    });
 
-    let box_plot = BoxPlot::new("CANDLE", box_elements);
+    let box_plot = 
+        BoxPlot::new("CANDLE", box_elements)
+            .element_formatter(formatter);
     plot_ui.box_plot(box_plot);
 }
 
