@@ -456,8 +456,8 @@ fn plot_candle(points: &[Point], plot_ui: &mut PlotUi, time_step: f64) {
         let spread = &elem.spread;
         format!(
             "Open: {open:.2}\nClose: {close:.2}\nLow: {low:.2}\nHigh: {high:.2}",
-            open = spread.quartile3,
-            close = spread.quartile1,
+            open = if &elem.fill == &Color32::LIGHT_RED { spread.quartile3 } else { spread.quartile1 },
+            close = if &elem.fill == &Color32::LIGHT_RED { spread.quartile1 } else { spread.quartile3 },
             low = spread.lower_whisker,
             high = spread.upper_whisker,
         )
